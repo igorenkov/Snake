@@ -1,11 +1,13 @@
-﻿#include <stdio.h>
+﻿#define _CRT_SECURE_NO_WARNINGS
+
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <Windows.h> 
 #include <conio.h>
 #include <dos.h>
 
-#define WIDTH 60	//Ширина игрового поля
+#define WIDTH 30	//Ширина игрового поля
 #define HEIGHT 20	//Длина игрового поля
 #define TIME 250		//Время в мс между задержкой кадров (скорость змейки)
 #define PERSENTAGE_OF_WALLS 10	//Процент кол-ва стен от общего кол-ва клеток поля
@@ -34,14 +36,19 @@ void setcur(int x, int y) {
 	coord.Y = y;
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 };
+
+void clean_string() {
+	setcur(0, height + 1);
+	printf("                                                                          ");
+	setcur(0, height + 1);
+}
 //Просто функция с инициализацией переменных
 void start() {
 	game_over = 0;
 	count = 0;
 }
 //Функция инициализации змеи
-Snake* init_snake() {
-	Snake* snake = (Snake*)malloc(sizeof(Snake));	//Выделение памяти под "змею"
+void init_snake(Snake* snake) {
 	//Координаты головы изначально - (0, 1)
 	snake->head.col = 1;
 	snake->head.row = 0;
@@ -54,8 +61,6 @@ Snake* init_snake() {
 
 	move_x = 0;
 	move_y = 0;
-
-	return snake;
 }
 //Функция рандомного заполнения стенами
 void put_wall() {
@@ -136,6 +141,23 @@ void clean() {
 		}
 	}
 }
+
+void save(Snake* snake) {
+	FILE* fp = fopen("Progress.txt", "w");
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			fprintf(fp, "%c", arr[i][j]);
+		}
+		fprintf(fp, "%c", '\n');
+	}
+	fprintf(fp, "%d\n", snake->length);
+	for (int i = 0; i < snake->length; i++) {
+		fprintf(fp, "%d %d\n", snake->body[i].row, snake->body[i].col);
+	}
+	fprintf(fp, "%c\n%d\n%d", direct, snake->score, maximum);
+
+	fclose(fp);
+}
 //Функция чтения направления движения с клавиатуры
 void move(Snake* snake) {
 	int flag = 0;
@@ -169,20 +191,19 @@ void move(Snake* snake) {
 				direct = '>';	//Изменение символа головы
 			}
 			break;
-		case 'p':
+		case 'p':	//Условие на паузу
 			printf("Press 'C' to continue or 'F' to save your progress and finish the game: ");
 			while (!flag) {
 				if (_kbhit) {
 					switch (_getch()) {
-					case 'c':
+					case 'c':	//Условие на продолжение игры
 						flag = 1;
-						setcur(0, height + 1);
-						printf("                                                                                         ");
+						clean_string();
+						printf("w,a,s,d - snake control, p - pause.");
 						break;
-					case 'f':
-						setcur(0, height + 1);
-						printf("                                                                                         ");
-						setcur(0, height + 1);
+					case 'f':	//Условие на запись в файл и выход
+						save(snake);
+						clean_string();
 						printf("Your progress is saved. See you again! :)\n");
 						exit(1);
 					}
@@ -249,8 +270,8 @@ void check(Snake* snake) {
 	}
 	//Оператор стирает надпись про старт и "открывает выход из лабиринта", т.е. помещает в точку выхода символ " "
 	if (snake->head.col == 1 && snake->head.row == 1) {
-		setcur(0, height + 1);
-		printf("                                  ");
+		clean_string();
+		printf("w,a,s,d - snake control, p - pause.");
 		arr[height - 1][width - 2] = ' ';
 		draw_symbol(height - 1, width - 2, ' ');
 	}
@@ -273,17 +294,72 @@ void draw() {
 }
 
 int main() {
+	Snake* snake = (Snake*)malloc(sizeof(Snake));	//Выделение памяти под "змею"
 	start();
+	FILE* fp;
+	int flag = 0;
+	printf("Press 'y', if you want to continue your last game. Press 'n', if you dont want.");
+	switch (_getch()) {
+	case 'y':
+		
+		system("cls");
+		fp = fopen("Progress.txt", "r");
+		for (int i = 0; i < height; i++) {
+			for (int j = 0; j < width; j++) {
+				fscanf(fp, "%c", &arr[i][j]);
+			}
+			fgetc(fp);
+		}
+		fscanf(fp, "%d", &snake->length);
+		fgetc(fp);
+		for (int i = 0; i < snake->length; i++) {
+			fscanf(fp, "%d", &snake->body[i].row);
+			fgetc(fp);
+			fscanf(fp, "%d", &snake->body[i].col);
+			fgetc(fp);
+		}
+		snake->head.col = snake->body[0].col;
+		snake->head.row = snake->body[0].row;
+		fscanf(fp, "%c", &direct);
+		fgetc(fp);
+		fscanf(fp, "%d", &snake->score);
+		fgetc(fp);
+		fscanf(fp, "%d", &maximum);
+		fgetc(fp);
+		move_x = 0;
+		move_y = 0;
+		fclose(fp);
 
+		draw();
+		setcur(0, height + 1);
+		printf("Press w,a,s,d to continue.");
+		while (!flag) {
+			move(snake);
+			if (move_x != 0 || move_y != 0) {
+				flag = 1;
+				clean_string();
+				printf("w,a,s,d - snake control, p - pause.");
+			}
+		}
 
-	srand(time(NULL));
-	init_field();
-	Snake* snake = init_snake();
-	check_access();
-	clean();
-	draw();
+		break;
+	case 'n':
+		system("cls");
 
-	printf("\nPress 'S' to start the game:	");
+		srand(time(NULL));
+		init_field();
+		init_snake(snake);
+		check_access();
+		clean();
+		draw();
+
+		printf("\nPress 's' to start the game:	");
+
+		break;
+	default:
+		game_over = -1;
+		break;
+	}
 	
 	while (!game_over) {
 		move(snake);
@@ -294,12 +370,15 @@ int main() {
 	}
 	
 	if (game_over == -1) {
+		clean_string();
 		printf("Game Over :(\n");
 	} else if (game_over == 2) {
-		setcur(0, height + 1);
+		clean_string();
 		printf("This map is incorrect. Try again.\n");
 	}
 	else {
+		
+		clean_string();
 		printf("You have escaped! :)");
 		if (snake->score < maximum) {
 			printf("\nYour score: %d of %d. There are still fresh apples inside. Try again! ;)\n", snake->score, maximum);

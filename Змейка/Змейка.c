@@ -7,8 +7,8 @@
 
 #define WIDTH 60	//Ширина игрового поля
 #define HEIGHT 20	//Длина игрового поля
-#define TIME 70		//Время в мс между задержкой кадров (скорость змейки)
-#define PERSENTAGE_OF_WALLS 0	//Процент кол-ва стен от общего кол-ва клеток поля
+#define TIME 250		//Время в мс между задержкой кадров (скорость змейки)
+#define PERSENTAGE_OF_WALLS 10	//Процент кол-ва стен от общего кол-ва клеток поля
 #define PERSENTAGE_OF_APPLES 1	//Процент кол-ва яблок от кол-ва оставшихся после заполнения стенами свободных клеток поля
 
 int width = WIDTH + 2;
@@ -114,7 +114,7 @@ void check_cell(int y, int x) {
 //Функция проверки поля на то, что до всех яблок змейка добраться и что змейка может из точки входа в лабиринт прийти в точку выхода
 void check_access() {
 	check_cell(1, 1);
-	if ((count == maximum) && (arr[1][1] == '*') && (arr[HEIGHT][WIDTH] == '*')) {
+	if ((count == maximum) && ((arr[1][1] == '*') || (arr[1][1] == '%')) && ((arr[HEIGHT][WIDTH] == '*') || (arr[HEIGHT][WIDTH] == '%'))) {
 		game_over = 0;
 	}
 	else {
@@ -138,10 +138,11 @@ void clean() {
 }
 //Функция чтения направления движения с клавиатуры
 void move(Snake* snake) {
+	int flag = 0;
 	if (_kbhit()) {	//функция работает только при вводе символа
 		switch (_getch()) {
 		case 'w':
-			if (direct != 'v') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+			if ((direct != 'v') && (snake->head.col * snake->head.row != 0)) {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
 				move_x = 0;
 				move_y = -1;
 				direct = '^';	//Изменение символа головы
@@ -155,19 +156,38 @@ void move(Snake* snake) {
 			}
 			break;
 		case 'a':
-			if (direct != '>') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+			if ((direct != '>') && (snake->head.col * snake->head.row != 0)) {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
 				move_x = -1;
 				move_y = 0;
 				direct = '<';	//Изменение символа головы
 			}
 			break;
 		case 'd':
-			if (direct != '<') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+			if ((direct != '<') && (snake->head.col * snake->head.row != 0)) {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
 				move_x = 1;
 				move_y = 0;
 				direct = '>';	//Изменение символа головы
 			}
 			break;
+		case 'p':
+			printf("Press 'C' to continue or 'F' to save your progress and finish the game: ");
+			while (!flag) {
+				if (_kbhit) {
+					switch (_getch()) {
+					case 'c':
+						flag = 1;
+						setcur(0, height + 1);
+						printf("                                                                                         ");
+						break;
+					case 'f':
+						setcur(0, height + 1);
+						printf("                                                                                         ");
+						setcur(0, height + 1);
+						printf("Your progress is saved. See you again! :)\n");
+						exit(1);
+					}
+				}
+			}
 		default:
 			move_x = move_x;
 			move_y = move_y;
@@ -254,12 +274,15 @@ void draw() {
 
 int main() {
 	start();
+
+
 	srand(time(NULL));
 	init_field();
 	Snake* snake = init_snake();
 	check_access();
 	clean();
 	draw();
+
 	printf("\nPress 'S' to start the game:	");
 	
 	while (!game_over) {
@@ -279,7 +302,7 @@ int main() {
 	else {
 		printf("You have escaped! :)");
 		if (snake->score < maximum) {
-			printf("\nYour score: %d. There are still fresh apples inside. Try again! ;)\n", snake->score);
+			printf("\nYour score: %d of %d. There are still fresh apples inside. Try again! ;)\n", snake->score, maximum);
 		}
 		else {
 			printf("\nYour score: %d. You've eaten all the apples. My congratulations! And try again! :)\n", maximum);

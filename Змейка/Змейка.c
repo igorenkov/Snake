@@ -36,7 +36,7 @@ void setcur(int x, int y) {
 	coord.Y = y;
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 };
-
+//Функция очистки строки под полем (так проще вводить текст)
 void clean_string() {
 	setcur(0, height + 1);
 	printf("                                                                          ");
@@ -297,42 +297,47 @@ int main() {
 	Snake* snake = (Snake*)malloc(sizeof(Snake));	//Выделение памяти под "змею"
 	start();
 	FILE* fp;
-	int flag = 0;
+	int flag = 0;	//Флажок для одной функции ниже
 	printf("Press 'y', if you want to continue your last game. Press 'n', if you dont want.");
 	switch (_getch()) {
 	case 'y':
 		
 		system("cls");
 		fp = fopen("Progress.txt", "r");
+		//Запись поля в массив
 		for (int i = 0; i < height; i++) {
 			for (int j = 0; j < width; j++) {
 				fscanf(fp, "%c", &arr[i][j]);
 			}
 			fgetc(fp);
 		}
+		//Запись длины змейки
 		fscanf(fp, "%d", &snake->length);
 		fgetc(fp);
+		//Запись координат сегментов тела змейки в структуру
 		for (int i = 0; i < snake->length; i++) {
 			fscanf(fp, "%d", &snake->body[i].row);
 			fgetc(fp);
 			fscanf(fp, "%d", &snake->body[i].col);
 			fgetc(fp);
 		}
+		//Запись координат головы
 		snake->head.col = snake->body[0].col;
 		snake->head.row = snake->body[0].row;
-		fscanf(fp, "%c", &direct);
+		fscanf(fp, "%c", &direct);	//Запись значка головы(^,>,v,<)
 		fgetc(fp);
-		fscanf(fp, "%d", &snake->score);
+		fscanf(fp, "%d", &snake->score);	//Запись кол-ва очков
 		fgetc(fp);
-		fscanf(fp, "%d", &maximum);
+		fscanf(fp, "%d", &maximum);		//Запись максимального количества очков
 		fgetc(fp);
 		move_x = 0;
 		move_y = 0;
 		fclose(fp);
 
 		draw();
-		setcur(0, height + 1);
+		clean();
 		printf("Press w,a,s,d to continue.");
+		//Условие на первое движение
 		while (!flag) {
 			move(snake);
 			if (move_x != 0 || move_y != 0) {
@@ -345,7 +350,7 @@ int main() {
 		break;
 	case 'n':
 		system("cls");
-
+		//Генерация
 		srand(time(NULL));
 		init_field();
 		init_snake(snake);
@@ -390,3 +395,4 @@ int main() {
 	free(snake);
 	return 0;
 }
+//Здесь используются глобальные переменные, поэтому вызов из файла сохранённой игры осуществится верно только при одинаковых размерах поля. Требуется доработка

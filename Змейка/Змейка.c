@@ -7,10 +7,10 @@
 #include <conio.h>
 #include <dos.h>
 
-#define WIDTH 30	//Ширина игрового поля
-#define HEIGHT 20	//Длина игрового поля
-#define TIME 250		//Время в мс между задержкой кадров (скорость змейки)
-#define PERSENTAGE_OF_WALLS 10	//Процент кол-ва стен от общего кол-ва клеток поля
+#define WIDTH 100	//Ширина игрового поля
+#define HEIGHT 40	//Длина игрового поля
+#define TIME 100		//Время в мс между задержкой кадров (скорость змейки)
+#define PERSENTAGE_OF_WALLS 0	//Процент кол-ва стен от общего кол-ва клеток поля
 #define PERSENTAGE_OF_APPLES 1	//Процент кол-ва яблок от кол-ва оставшихся после заполнения стенами свободных клеток поля
 
 int width = WIDTH + 2;
@@ -64,7 +64,7 @@ void init_snake(Snake* snake) {
 }
 //Функция рандомного заполнения стенами
 void put_wall() {
-	for (int i = 0; i < PERSENTAGE_OF_WALLS * WIDTH * HEIGHT / 100; i++) {
+	for (int i = 0; i < (float)PERSENTAGE_OF_WALLS * WIDTH * HEIGHT / 100; i++) {
 		do {
 			wall_x = rand() % WIDTH + 1;
 			wall_y = rand() % HEIGHT + 1;
@@ -75,7 +75,7 @@ void put_wall() {
 //Функция рандомного заполнения яблоками
 void put_apple() {
 	maximum = 0;
-	for (int i = 0; i < PERSENTAGE_OF_APPLES * WIDTH * HEIGHT * (100 - PERSENTAGE_OF_WALLS) / 100 / 100; i++) {
+	for (int i = 0; i < (float)PERSENTAGE_OF_APPLES * WIDTH * HEIGHT * (100 - PERSENTAGE_OF_WALLS) / 100 / 100; i++) {
 		do {
 			apple_x = rand() % WIDTH + 1;
 			apple_y = rand() % HEIGHT + 1;
@@ -161,10 +161,22 @@ void save(Snake* snake) {
 //Функция чтения направления движения с клавиатуры
 void move(Snake* snake) {
 	int flag = 0;
-	if (_kbhit()) {	//функция работает только при вводе символа
+	if (snake->head.col == 1 && snake->head.row == 0) {
+		while (!flag) {
+			if (_kbhit) {
+				if (_getch() == 's') {
+					move_x = 0;
+					move_y = 1;
+					direct = 'v';
+					flag = 1;
+				}
+			}
+		}
+	}
+	else if (_kbhit()) {	//функция работает только при вводе символа
 		switch (_getch()) {
 		case 'w':
-			if ((direct != 'v') && (snake->head.col * snake->head.row != 0)) {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+			if (direct != 'v') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
 				move_x = 0;
 				move_y = -1;
 				direct = '^';	//Изменение символа головы
@@ -178,33 +190,41 @@ void move(Snake* snake) {
 			}
 			break;
 		case 'a':
-			if ((direct != '>') && (snake->head.col * snake->head.row != 0)) {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+			if (direct != '>') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
 				move_x = -1;
 				move_y = 0;
 				direct = '<';	//Изменение символа головы
 			}
 			break;
 		case 'd':
-			if ((direct != '<') && (snake->head.col * snake->head.row != 0)) {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+			if (direct != '<') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
 				move_x = 1;
 				move_y = 0;
 				direct = '>';	//Изменение символа головы
 			}
 			break;
 		case 'p':	//Условие на паузу
-			printf("Press 'C' to continue or 'F' to save your progress and finish the game: ");
+			clean_string();
+			printf("Press 'P' to continue, 'F' to save your progress, 'E' finish the game: ");
 			while (!flag) {
 				if (_kbhit) {
 					switch (_getch()) {
-					case 'c':	//Условие на продолжение игры
+					case 'p':	//Условие на продолжение игры
 						flag = 1;
 						clean_string();
 						printf("w,a,s,d - snake control, p - pause.");
 						break;
-					case 'f':	//Условие на запись в файл и выход
+					case 'f':	//Условие на запись в файл
 						save(snake);
 						clean_string();
-						printf("Your progress is saved. See you again! :)\n");
+						printf("Your progress is saved!");
+						Sleep(3000);
+						clean_string();
+						printf("Press 'P' to continue, 'F' to save your progress, 'E' finish the game: ");
+						break;
+					case 'e':	//Условие на выход из игры
+						clean_string();
+						printf("See you again! :)");
 						exit(1);
 					}
 				}
@@ -298,9 +318,9 @@ int main() {
 	start();
 	FILE* fp;
 	int flag = 0;	//Флажок для одной функции ниже
-	printf("Press 'y', if you want to continue your last game. Press 'n', if you dont want.");
+	printf("Press 'c', if you want to continue your last game.\nPress 'n', if you want to start a new game.");
 	switch (_getch()) {
-	case 'y':
+	case 'c':
 		
 		system("cls");
 		fp = fopen("Progress.txt", "r");
@@ -335,7 +355,7 @@ int main() {
 		fclose(fp);
 
 		draw();
-		clean();
+		clean_string();
 		printf("Press w,a,s,d to continue.");
 		//Условие на первое движение
 		while (!flag) {

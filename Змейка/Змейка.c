@@ -7,17 +7,7 @@
 #include <conio.h>
 #include <dos.h>
 
-#define WIDTH 100	//Ширина игрового поля
-#define HEIGHT 40	//Длина игрового поля
-#define TIME 100		//Время в мс между задержкой кадров (скорость змейки)
-#define PERSENTAGE_OF_WALLS 0	//Процент кол-ва стен от общего кол-ва клеток поля
-#define PERSENTAGE_OF_APPLES 1	//Процент кол-ва яблок от кол-ва оставшихся после заполнения стенами свободных клеток поля
-
-int width = WIDTH + 2;
-int height = HEIGHT + 2;
-char arr[HEIGHT + 2][WIDTH + 2];	//Глобальный массив, в котором хранится вся информация о поле
-int game_over, move_x, move_y, apple_x, apple_y, wall_x, wall_y, maximum, count;
-char direct = 'v';	//Значок для головы змеи
+int game_over, move_x, move_y, count;
 //Структура с координатами части тела змейки(row - номер строки, col - номер столбца)
 typedef struct place {
 	int row, col;
@@ -25,10 +15,21 @@ typedef struct place {
 //Структура с информацией о змейке
 typedef struct Snake {
 	place head;	//Координаты головы
-	place body[WIDTH*HEIGHT];	//Координаты всех частей тела змеи(0-й элемент в массиве - голова)
+	place* body;	//Указатель на массив с координатами всех частей тела змеи(0-й элемент в массиве - голова)
 	int length;	//Длина змеи
 	int score;	//Кол-во очков в игре (число съеденных яблок)
+	char direct;
 } Snake;
+
+typedef struct Field {
+	int width;	//Ширина поля
+	int height;	//Высота поля
+	int time;	//Время обновления кадров
+	float persentage_of_walls;	//Процент заполнения поля стенами
+	float persentage_of_apples;		//Процент заполнения свободного поля яблоками
+	int maximum;	//Количество яблок на поле
+	char** arr;	//Указатель на поле (двумерный массив из символов)
+} Field;
 //Функция для помещения курсора в точку (x, y) (взял с форума)
 void setcur(int x, int y) {
 	COORD coord;
@@ -36,11 +37,11 @@ void setcur(int x, int y) {
 	coord.Y = y;
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 };
-//Функция очистки строки под полем (так проще вводить текст)
-void clean_string() {
-	setcur(0, height + 1);
-	printf("                                                                          ");
-	setcur(0, height + 1);
+//Функция очистки строки в n-й строчке под полем (так проще вводить текст)
+void clean_string(Field* field, int n) {
+	setcur(0, field->height + 2 + n);
+	printf("                                                                            ");
+	setcur(0, field->height + 2 + n);
 }
 //Просто функция с инициализацией переменных
 void start() {
@@ -48,78 +49,103 @@ void start() {
 	count = 0;
 }
 //Функция инициализации змеи
-void init_snake(Snake* snake) {
+void init_snake(Snake* snake, Field* field) {
 	//Координаты головы изначально - (0, 1)
+	snake->body = (place*)malloc(sizeof(place) * field->height * field->width);
 	snake->head.col = 1;
 	snake->head.row = 0;
 	snake->body[0].col = snake->head.col;
 	snake->body[0].row = snake->head.row;
 	snake->length = 1;
 	snake->score = 0;
-	arr[snake->head.row][snake->head.col] = direct;
-	
-
-	move_x = 0;
-	move_y = 0;
+	snake->direct = 'v';
 }
 //Функция рандомного заполнения стенами
-void put_wall() {
-	for (int i = 0; i < (float)PERSENTAGE_OF_WALLS * WIDTH * HEIGHT / 100; i++) {
+void put_wall(Field* field) {
+	int wall_x, wall_y;
+	for (int i = 0; i < (float)field->persentage_of_walls * field->width * field->height / 100; i++) {
 		do {
-			wall_x = rand() % WIDTH + 1;
-			wall_y = rand() % HEIGHT + 1;
-		} while (arr[wall_y][wall_x] != ' ' && arr[wall_y][wall_x] != '\0');
-		arr[wall_y][wall_x] = '#';
+			wall_x = rand() % field->width + 1;
+			wall_y = rand() % field->height + 1;
+		} while (field->arr[wall_y][wall_x] != ' ' && field->arr[wall_y][wall_x] != '\0');
+		field->arr[wall_y][wall_x] = '#';
 	}
 }
 //Функция рандомного заполнения яблоками
-void put_apple() {
-	maximum = 0;
-	for (int i = 0; i < (float)PERSENTAGE_OF_APPLES * WIDTH * HEIGHT * (100 - PERSENTAGE_OF_WALLS) / 100 / 100; i++) {
+void put_apple(Field* field) {
+	int apple_x, apple_y;
+	int maximum = 0;
+	for (int i = 0; i < (float)field->persentage_of_apples * field->width * field->height * (100 - field->persentage_of_walls) / 100 / 100; i++) {
 		do {
-			apple_x = rand() % WIDTH + 1;
-			apple_y = rand() % HEIGHT + 1;
-		} while (arr[apple_y][apple_x] != ' ' && arr[apple_y][apple_x] != '\0');
-		arr[apple_y][apple_x] = '@';
+			apple_x = rand() % field->width + 1;
+			apple_y = rand() % field->height + 1;
+		} while (field->arr[apple_y][apple_x] != ' ' && field->arr[apple_y][apple_x] != '\0');
+		field->arr[apple_y][apple_x] = '@';
 		maximum++;
 	}
+	field->maximum = maximum;
 }
-//Функция инициализации поля (постройка граничных стен, постройка стен внутри, заполнение яблоками)
-void init_field() {
-	for (int i = 0; i < width; i++) {
-		arr[0][i] = '#';
-		arr[height - 1][i] = '#';
+//Функция инициализации поля (считывание размеров и характеристик, постройка граничных стен, постройка стен внутри, заполнение яблоками)
+void init_field(Field* field) {
+	int speed;
+	printf("Enter width of the field: ");
+	scanf("%d", &field->width);
+	printf("Enter height of the field: ");
+	scanf("%d", &field->height);
+	printf("Enter speed of the snake(1-10): ");
+	scanf("%d", &speed);
+	field->time = 750 / speed;
+	printf("Enter percentage of walls: ");
+	scanf("%f", &field->persentage_of_walls);
+	printf("Enter percentage of apples: ");
+	scanf("%f", &field->persentage_of_apples);
+	system("cls");
+	//Выделение памяти под массив с симолами поля
+	field->arr = (char**)malloc(sizeof(char*) * (field->height + 2));
+	for (int i = 0; i < field->height + 2; i++) {
+		field->arr[i] = (char*)malloc(sizeof(char) * (field->width + 2));
 	}
-	for (int i = 1; i < height - 1; i++) {
-		arr[i][0] = '#';
-		arr[i][width - 1] = '#';
+	//Постройка границ
+	for (int i = 0; i < field->width + 2; i++) {
+		field->arr[0][i] = '#';
+		field->arr[field->height + 1][i] = '#';
 	}
-
-	put_wall();
-	put_apple();
+	for (int i = 1; i < field->height + 1; i++) {
+		field->arr[i][0] = '#';
+		field->arr[i][field->width + 1] = '#';
+	}
+	for (int i = 1; i < field->height + 1; i++) {
+		for (int j = 1; j < field->width + 1; j++) {
+			field->arr[i][j] = ' ';
+		}
+	}
+	field->arr[0][1] = 'v';
+	//Постройка стен внутри, заполнение яблоками
+	put_wall(field);
+	put_apple(field);
 }
 //Функция стартует с точки (1, 1) и, двигаясь в порядке "вверх, вправо, вниз, влево", заполняет пустые клетки символом "*" (вместо яблок ставится символ "%" исключительно для удобства)
-void check_cell(int y, int x) {
-	if (arr[y][x] == ' ' || arr[y][x] == '\0') {
-		arr[y][x] = '*';
-		check_cell(y - 1, x);
-		check_cell(y, x + 1);
-		check_cell(y + 1, x);
-		check_cell(y, x - 1);
+void check_cell(int y, int x, Field* field) {
+	if (field->arr[y][x] == ' ' || field->arr[y][x] == '\0') {
+		field->arr[y][x] = '*';
+		check_cell(y - 1, x, field);
+		check_cell(y, x + 1, field);
+		check_cell(y + 1, x, field);
+		check_cell(y, x - 1, field);
 	}
-	else if (arr[y][x] == '@') {
+	else if (field->arr[y][x] == '@') {
 		count++;	//Счётчик доступных яблок (т.е. тех, до которых змейка может добраться)
-		arr[y][x] = '%';
-		check_cell(y - 1, x);
-		check_cell(y, x + 1);
-		check_cell(y + 1, x);
-		check_cell(y, x - 1);
+		field->arr[y][x] = '%';
+		check_cell(y - 1, x, field);
+		check_cell(y, x + 1, field);
+		check_cell(y + 1, x, field);
+		check_cell(y, x - 1, field);
 	}
 }
 //Функция проверки поля на то, что до всех яблок змейка добраться и что змейка может из точки входа в лабиринт прийти в точку выхода
-void check_access() {
-	check_cell(1, 1);
-	if ((count == maximum) && ((arr[1][1] == '*') || (arr[1][1] == '%')) && ((arr[HEIGHT][WIDTH] == '*') || (arr[HEIGHT][WIDTH] == '%'))) {
+void check_access(Field* field) {
+	check_cell(1, 1, field);
+	if ((count == field->maximum) && ((field->arr[1][1] == '*') || (field->arr[1][1] == '%')) && ((field->arr[field->height][field->width] == '*') || (field->arr[field->height][field->width] == '%'))) {
 		game_over = 0;
 	}
 	else {
@@ -128,25 +154,29 @@ void check_access() {
 
 }
 //Функция очистки массива от символов "*" и "%", оставшизся после функции check_cell и замены на изначальные символы " " и "@"
-void clean() {
+void clean(Field* field) {
 	setcur(0, 0);
-	for (int i = 0; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-			if (arr[i][j] == '*') {
-				arr[i][j] = ' ';
+	for (int i = 0; i < field->height + 2; i++) {
+		for (int j = 0; j < field->width + 2; j++) {
+			if (field->arr[i][j] == '*') {
+				field->arr[i][j] = ' ';
 			}
-			else if (arr[i][j] == '%') {
-				arr[i][j] = '@';
+			else if (field->arr[i][j] == '%') {
+				field->arr[i][j] = '@';
 			}
 		}
 	}
 }
-
-void save(Snake* snake) {
+//Функция сохранения змейки и поля в файл "Progress.txt"
+void save(Snake* snake, Field* field) {
 	FILE* fp = fopen("Progress.txt", "w");
-	for (int i = 0; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-			fprintf(fp, "%c", arr[i][j]);
+	fprintf(fp, "%d %d\n", field->height, field->width);
+	fprintf(fp, "%d\n", field->time);
+	fprintf(fp, "%f %f\n", field->persentage_of_walls, field->persentage_of_apples);
+	fprintf(fp, "%d\n", field->maximum);
+	for (int i = 0; i < field->height + 2; i++) {
+		for (int j = 0; j < field->width + 2; j++) {
+			fprintf(fp, "%c", field->arr[i][j]);
 		}
 		fprintf(fp, "%c", '\n');
 	}
@@ -154,12 +184,12 @@ void save(Snake* snake) {
 	for (int i = 0; i < snake->length; i++) {
 		fprintf(fp, "%d %d\n", snake->body[i].row, snake->body[i].col);
 	}
-	fprintf(fp, "%c\n%d\n%d", direct, snake->score, maximum);
-
+	fprintf(fp, "%c", snake->direct);
 	fclose(fp);
 }
 //Функция чтения направления движения с клавиатуры
-void move(Snake* snake) {
+void move(Snake* snake, Field* field) {
+	//Условие на первое движение только вниз
 	int flag = 0;
 	if (snake->head.col == 1 && snake->head.row == 0) {
 		while (!flag) {
@@ -167,8 +197,17 @@ void move(Snake* snake) {
 				if (_getch() == 's') {
 					move_x = 0;
 					move_y = 1;
-					direct = 'v';
+					snake->direct = 'v';
 					flag = 1;
+					//Если яблок изначально нет, генерируется другая надпись
+					if (field->maximum == snake->score) {
+						clean_string(field, 2);
+						printf("There are no apples here. Find a way out!", snake->score);
+					}
+					else {
+						clean_string(field, 1);
+						printf("W,a,s,d - snake control, p - pause.\nApples number - %d", field->maximum);
+					}
 				}
 			}
 		}
@@ -176,55 +215,57 @@ void move(Snake* snake) {
 	else if (_kbhit()) {	//функция работает только при вводе символа
 		switch (_getch()) {
 		case 'w':
-			if (direct != 'v') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+			if (snake->direct != 'v') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
 				move_x = 0;
 				move_y = -1;
-				direct = '^';	//Изменение символа головы
+				snake->direct = '^';	//Изменение символа головы
 			}
 			break;
 		case 's':
-			if (direct != '^') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+			if (snake->direct != '^') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
 				move_x = 0;
 				move_y = 1;
-				direct = 'v';	//Изменение символа головы
+				snake->direct = 'v';	//Изменение символа головы
 			}
 			break;
 		case 'a':
-			if (direct != '>') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+			if (snake->direct != '>') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
 				move_x = -1;
 				move_y = 0;
-				direct = '<';	//Изменение символа головы
+				snake->direct = '<';	//Изменение символа головы
 			}
 			break;
 		case 'd':
-			if (direct != '<') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+			if (snake->direct != '<') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
 				move_x = 1;
 				move_y = 0;
-				direct = '>';	//Изменение символа головы
+				snake->direct = '>';	//Изменение символа головы
 			}
 			break;
 		case 'p':	//Условие на паузу
-			clean_string();
+			clean_string(field, 1);
 			printf("Press 'P' to continue, 'F' to save your progress, 'E' finish the game: ");
 			while (!flag) {
 				if (_kbhit) {
 					switch (_getch()) {
 					case 'p':	//Условие на продолжение игры
 						flag = 1;
-						clean_string();
+						clean_string(field, 1);
 						printf("w,a,s,d - snake control, p - pause.");
 						break;
 					case 'f':	//Условие на запись в файл
-						save(snake);
-						clean_string();
+						save(snake, field);
+						clean_string(field, 1);
 						printf("Your progress is saved!");
 						Sleep(3000);
-						clean_string();
-						printf("Press 'P' to continue, 'F' to save your progress, 'E' finish the game: ");
+						clean_string(field, 1);
+						printf("Press 'P' to continue, 'F' to save your progress, 'E' to finish the game: ");
 						break;
 					case 'e':	//Условие на выход из игры
-						clean_string();
-						printf("See you again! :)");
+						clean_string(field, 2);
+						clean_string(field, 1);
+						printf("See you again! :)\n");
+						Sleep(1000);
 						exit(1);
 					}
 				}
@@ -241,13 +282,13 @@ void draw_symbol(int y, int x, char symb) {
 	putchar(symb);
 }
 //Главная функция проверки на столкновение или поедание яблока
-void check(Snake* snake) {
+void check(Snake* snake, Field* field) {
 	//Столкновение
-	if (arr[snake->head.row + move_y][snake->head.col + move_x] == '#' || arr[snake->head.row + move_y][snake->head.col + move_x] == 'o') {
+	if (field->arr[snake->head.row + move_y][snake->head.col + move_x] == '#' || field->arr[snake->head.row + move_y][snake->head.col + move_x] == 'o') {
 		game_over = -1;
 	}
-	else if (arr[snake->head.row + move_y][snake->head.col + move_x] == '@') {	//Поедание яблока
-		arr[snake->head.row][snake->head.col] = 'o';
+	else if (field->arr[snake->head.row + move_y][snake->head.col + move_x] == '@') {	//Поедание яблока
+		field->arr[snake->head.row][snake->head.col] = 'o';
 		draw_symbol(snake->head.row, snake->head.col, 'o');
 		snake->head.col += move_x;
 		snake->head.row += move_y;
@@ -258,17 +299,24 @@ void check(Snake* snake) {
 		snake->body[0].col = snake->head.col;
 		snake->body[0].row = snake->head.row;
 
-		arr[snake->head.row][snake->head.col] = direct;
-		draw_symbol(snake->head.row, snake->head.col, direct);
+		field->arr[snake->head.row][snake->head.col] = snake->direct;
+		draw_symbol(snake->head.row, snake->head.col, snake->direct);
 
 		snake->length++;
 		snake->score++;
+		//Вывод информации об очках
+		clean_string(field, 2);
+		printf("Your score - %d. Apples left - %d.", snake->score, field->maximum - snake->score);
+		if (field->maximum == snake->score) {
+			clean_string(field, 2);
+			printf("Your score - %d. Find a way out!", snake->score);
+		}
 	}
 	else {	//Движение на следующую пустую клетку без яблок
-		arr[snake->head.row][snake->head.col] = 'o';
+		field->arr[snake->head.row][snake->head.col] = 'o';
 		draw_symbol(snake->head.row, snake->head.col, 'o');
 
-		arr[snake->body[snake->length - 1].row][snake->body[snake->length - 1].col] = ' ';
+		field->arr[snake->body[snake->length - 1].row][snake->body[snake->length - 1].col] = ' ';
 		draw_symbol(snake->body[snake->length - 1].row, snake->body[snake->length - 1].col, ' ');
 
 		snake->head.col += move_x;
@@ -279,48 +327,65 @@ void check(Snake* snake) {
 		}
 		snake->body[0].col = snake->head.col;
 		snake->body[0].row = snake->head.row;
-		
-		arr[snake->head.row][snake->head.col] = direct;
-		draw_symbol(snake->head.row, snake->head.col, direct);
+
+		field->arr[snake->head.row][snake->head.col] = snake->direct;
+		draw_symbol(snake->head.row, snake->head.col, snake->direct);
 	}
-	//Оператор убирает символ " " в точке старта после начала игры
-	if (arr[0][1] == ' ') {
-		arr[0][1] = '#';
+	//Условие на удаление символа " " в точке старта после начала игры
+	if (field->arr[0][1] == ' ') {
+		field->arr[0][1] = '#';
 		draw_symbol(0, 1, '#');
 	}
-	//Оператор стирает надпись про старт и "открывает выход из лабиринта", т.е. помещает в точку выхода символ " "
+	//Условие на стирание надписи про старт и "открывает выход из лабиринта", т.е. помещает в точку выхода символ " "
 	if (snake->head.col == 1 && snake->head.row == 1) {
-		clean_string();
-		printf("w,a,s,d - snake control, p - pause.");
-		arr[height - 1][width - 2] = ' ';
-		draw_symbol(height - 1, width - 2, ' ');
+		field->arr[field->height + 1][field->width] = ' ';
+		draw_symbol(field->height + 1, field->width, ' ');
 	}
 }
 //Функция проверки на попадание в выход из лабиринта
-void check_victory(Snake* snake) {
-	if ((snake->head.col == (width - 2)) && (snake->head.row == (height - 1))) {
+void check_victory(Snake* snake, Field* field) {
+	if ((snake->head.col == (field->width)) && (snake->head.row == (field->height + 1))) {
 		game_over = 1;
 	}
 }
 //Функция рисования всего поля
-void draw() {
+void draw(Field* field) {
 	setcur(0, 0);
-	for (int i = 0; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-			putchar(arr[i][j]);
+	for (int i = 0; i < field->height + 2; i++) {
+		for (int j = 0; j < field->width + 2; j++) {
+			putchar(field->arr[i][j]);
 		}
 		putchar('\n');
 	}
 }
-
-void read(FILE* fp, Snake* snake) {
-	//Запись поля в массив
-	for (int i = 0; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-			fscanf(fp, "%c", &arr[i][j]);
+//Функция считывания поля и змейки из файла "Progress.txt"
+void read(FILE* fp, Snake* snake, Field* field) {
+	//Запись информации о поле
+	fscanf(fp, "%d", &field->height);
+	fgetc(fp);
+	fscanf(fp, "%d", &field->width);
+	fgetc(fp);
+	fscanf(fp, "%d", &field->time);
+	fgetc(fp);
+	fscanf(fp, "%f", &field->persentage_of_walls);
+	fgetc(fp);
+	fscanf(fp, "%f", &field->persentage_of_apples);
+	fgetc(fp);
+	fscanf(fp, "%d", &field->maximum);
+	fgetc(fp);
+	//Выделение памяти под поле и запись поля в массив
+	field->arr = (char**)malloc(sizeof(char*) * (field->height + 2));
+	for (int i = 0; i < field->height + 2; i++) {
+		field->arr[i] = (char*)malloc(sizeof(char) * (field->width + 2));
+	}
+	for (int i = 0; i < field->height + 2; i++) {
+		for (int j = 0; j < field->width + 2; j++) {
+			fscanf(fp, "%c", &field->arr[i][j]);
 		}
 		fgetc(fp);
 	}
+	//Выделение памяти под тело змейки и запись информации о змейке
+	snake->body = (place*)malloc(sizeof(place) * field->height * field->width);
 	//Запись длины змейки
 	fscanf(fp, "%d", &snake->length);
 	fgetc(fp);
@@ -334,90 +399,124 @@ void read(FILE* fp, Snake* snake) {
 	//Запись координат головы
 	snake->head.col = snake->body[0].col;
 	snake->head.row = snake->body[0].row;
-	fscanf(fp, "%c", &direct);	//Запись значка головы(^,>,v,<)
+	fscanf(fp, "%c", &snake->direct);	//Запись значка головы(^,>,v,<)
 	fgetc(fp);
-	fscanf(fp, "%d", &snake->score);	//Запись кол-ва очков
-	fgetc(fp);
-	fscanf(fp, "%d", &maximum);		//Запись максимального количества очков
-	fgetc(fp);
+	snake->score = snake->length - 1;
+}
+//Функция удаления массива под поле, массива под тело змейки, структуры поля, структуры змейки 
+void free_game(Snake* snake, Field* field) {
+	free(snake->body);
+	free(snake);
+	for (int i = 0; i < field->height + 2; i++) {
+		free(field->arr[i]);
+	}
+	free(field->arr);
+	free(field);
 }
 
 int main() {
-	Snake* snake = (Snake*)malloc(sizeof(Snake));	//Выделение памяти под "змею"
-	start();
-	FILE* fp;
-	int flag = 0;	//Флажок для одной функции ниже
-	printf("Press 'c', if you want to continue your last game.\nPress 'n', if you want to start a new game.");
-	switch (_getch()) {
-	case 'c':
-		
-		system("cls");
-		fp = fopen("Progress.txt", "r");
-		read(fp, snake);
 
-		move_x = 0;
-		move_y = 0;
-		
-
-		draw();
-		clean_string();
-		printf("Press w,a,s,d to continue.");
-		//Условие на первое движение
-		while (!flag) {
-			move(snake);
-			if (move_x != 0 || move_y != 0) {
-				flag = 1;
-				clean_string();
-				printf("w,a,s,d - snake control, p - pause.");
+	while (1) {
+		Field* field = (Field*)malloc(sizeof(Field));	//Выделение памяти под поле
+		Snake* snake = (Snake*)malloc(sizeof(Snake));	//Выделение памяти под змейку
+		start();
+		FILE* fp;
+		int flag = 0;	//Флажок для одной функции ниже
+		int extraflag = 0;
+		printf("Press 'C' to continue your last game, 'N' to start a new game.");
+		while (!extraflag) {
+			switch (_getch()) {
+			case 'c':
+				//Условие на вывод из файла
+				system("cls");
+				fp = fopen("Progress.txt", "r");
+				read(fp, snake, field);
+				draw(field);
+				clean_string(field, 1);
+				printf("Press w,a,s,d to continue.");
+				//Условие на первое движение
+				while (!flag) {
+					move(snake, field);
+					if (move_x != 0 || move_y != 0) {
+						flag = 1;
+						clean_string(field, 1);
+						printf("W,a,s,d - snake control, p - pause.");
+					}
+				}
+				extraflag = 1;
+				break;
+			case 'n':
+				//Условие на новую игру
+				system("cls");
+				//Генерация
+				srand(time(NULL));
+				init_field(field);
+				init_snake(snake, field);
+				check_access(field);
+				clean(field);
+				draw(field);
+				clean_string(field, 1);
+				printf("Press 'S' to start the game:	");
+				extraflag = 1;
+				break;
+			default:
+				break;
 			}
 		}
-
-		break;
-	case 'n':
-		system("cls");
-		//Генерация
-		srand(time(NULL));
-		init_field();
-		init_snake(snake);
-		check_access();
-		clean();
-		draw();
-
-		printf("\nPress 's' to start the game:	");
-
-		break;
-	default:
-		game_over = -1;
-		break;
-	}
-	
-	while (!game_over) {
-		move(snake);
-		check(snake);
-		check_victory(snake);
-		setcur(0, height + 1);
-		Sleep(TIME);
-	}
-	
-	if (game_over == -1) {
-		clean_string();
-		printf("Game Over :(\n");
-	} else if (game_over == 2) {
-		clean_string();
-		printf("This map is incorrect. Try again.\n");
-	}
-	else {
-		
-		clean_string();
-		printf("You have escaped! :)");
-		if (snake->score < maximum) {
-			printf("\nYour score: %d of %d. There are still fresh apples inside. Try again! ;)\n", snake->score, maximum);
+		//Непосредственно функция игры
+		while (!game_over) {
+			move(snake, field);
+			check(snake, field);
+			check_victory(snake, field);
+			setcur(0, field->height + 5);
+			Sleep(field->time);
+		}
+		//Вывод результатов
+		if (game_over == -1) {
+			clean_string(field, 2);
+			clean_string(field, 1);
+			printf("Game Over :(");
+			free(snake);
+			free(field);
+		}
+		else if (game_over == 2) {
+			clean_string(field, 1);
+			printf("This map is incorrect. Try again.");
+			free_game(snake, field);
 		}
 		else {
-			printf("\nYour score: %d. You've eaten all the apples. My congratulations! And try again! :)\n", maximum);
+			clean_string(field, 1);
+			printf("You have escaped! :)");
+			clean_string(field, 2);
+			if (snake->score < field->maximum) {
+
+				printf("Your score: %d of %d. There are still fresh apples inside. Try again! ;)", snake->score, field->maximum);
+			}
+			else {
+				printf("Your score: %d. You've eaten all the apples. My congratulations! And try again! :)", field->maximum);
+			}
+			free_game(snake, field);
+		}
+		Sleep(4000);
+		//Условие на начало новой игры или выход
+		system("cls");
+		flag = 0;
+		printf("Press 'R' to restart the game,'E' to finish the game: ");
+		while (!flag) {
+			if (_kbhit) {
+				switch (_getch()) {
+				case 'r':	//Условие на продолжение игры
+					flag = 1;
+					system("cls");
+					break;
+				case 'e':	//Условие на выход из игры
+					system("cls");
+					printf("See you again! :)\n");
+					Sleep(1000);
+					exit(1);
+				}
+			}
 		}
 	}
-	free(snake);
 	return 0;
 }
-//Здесь используются глобальные переменные, поэтому вызов из файла сохранённой игры осуществится верно только при одинаковых размерах поля. Требуется доработка

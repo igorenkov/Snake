@@ -313,6 +313,35 @@ void draw() {
 	}
 }
 
+void read(FILE* fp, Snake* snake) {
+	//Запись поля в массив
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			fscanf(fp, "%c", &arr[i][j]);
+		}
+		fgetc(fp);
+	}
+	//Запись длины змейки
+	fscanf(fp, "%d", &snake->length);
+	fgetc(fp);
+	//Запись координат сегментов тела змейки в структуру
+	for (int i = 0; i < snake->length; i++) {
+		fscanf(fp, "%d", &snake->body[i].row);
+		fgetc(fp);
+		fscanf(fp, "%d", &snake->body[i].col);
+		fgetc(fp);
+	}
+	//Запись координат головы
+	snake->head.col = snake->body[0].col;
+	snake->head.row = snake->body[0].row;
+	fscanf(fp, "%c", &direct);	//Запись значка головы(^,>,v,<)
+	fgetc(fp);
+	fscanf(fp, "%d", &snake->score);	//Запись кол-ва очков
+	fgetc(fp);
+	fscanf(fp, "%d", &maximum);		//Запись максимального количества очков
+	fgetc(fp);
+}
+
 int main() {
 	Snake* snake = (Snake*)malloc(sizeof(Snake));	//Выделение памяти под "змею"
 	start();
@@ -324,35 +353,11 @@ int main() {
 		
 		system("cls");
 		fp = fopen("Progress.txt", "r");
-		//Запись поля в массив
-		for (int i = 0; i < height; i++) {
-			for (int j = 0; j < width; j++) {
-				fscanf(fp, "%c", &arr[i][j]);
-			}
-			fgetc(fp);
-		}
-		//Запись длины змейки
-		fscanf(fp, "%d", &snake->length);
-		fgetc(fp);
-		//Запись координат сегментов тела змейки в структуру
-		for (int i = 0; i < snake->length; i++) {
-			fscanf(fp, "%d", &snake->body[i].row);
-			fgetc(fp);
-			fscanf(fp, "%d", &snake->body[i].col);
-			fgetc(fp);
-		}
-		//Запись координат головы
-		snake->head.col = snake->body[0].col;
-		snake->head.row = snake->body[0].row;
-		fscanf(fp, "%c", &direct);	//Запись значка головы(^,>,v,<)
-		fgetc(fp);
-		fscanf(fp, "%d", &snake->score);	//Запись кол-ва очков
-		fgetc(fp);
-		fscanf(fp, "%d", &maximum);		//Запись максимального количества очков
-		fgetc(fp);
+		read(fp, snake);
+
 		move_x = 0;
 		move_y = 0;
-		fclose(fp);
+		
 
 		draw();
 		clean_string();

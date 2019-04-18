@@ -7,7 +7,7 @@
 #include <conio.h>
 #include <dos.h>
 
-int game_over, move_x, move_y, count;
+int game_over, move_x, move_y, count, recurs, recurs_x, recurs_y, recurs_start_x, recurs_start_y;
 //Структура с координатами части тела змейки(row - номер строки, col - номер столбца)
 typedef struct place {
 	int row, col;
@@ -47,6 +47,11 @@ void clean_string(Field* field, int n) {
 void start() {
 	game_over = 0;
 	count = 0;
+	recurs = 0;
+	recurs_start_x = 1;
+	recurs_start_y = 1;
+	recurs_x = 0;
+	recurs_y = 0;
 }
 //Функция инициализации змеи
 void init_snake(Snake* snake, Field* field) {
@@ -67,7 +72,7 @@ void put_wall(Field* field) {
 		do {
 			wall_x = rand() % field->width + 1;
 			wall_y = rand() % field->height + 1;
-		} while (field->arr[wall_y][wall_x] != ' ' && field->arr[wall_y][wall_x] != '\0');
+		} while (field->arr[wall_y][wall_x] != ' ');
 		field->arr[wall_y][wall_x] = '#';
 	}
 }
@@ -79,7 +84,7 @@ void put_apple(Field* field) {
 		do {
 			apple_x = rand() % field->width + 1;
 			apple_y = rand() % field->height + 1;
-		} while (field->arr[apple_y][apple_x] != ' ' && field->arr[apple_y][apple_x] != '\0');
+		} while (field->arr[apple_y][apple_x] != ' ');
 		field->arr[apple_y][apple_x] = '@';
 		maximum++;
 	}
@@ -126,20 +131,35 @@ void init_field(Field* field) {
 }
 //Функция стартует с точки (1, 1) и, двигаясь в порядке "вверх, вправо, вниз, влево", заполняет пустые клетки символом "*" (вместо яблок ставится символ "%" исключительно для удобства)
 void check_cell(int y, int x, Field* field) {
-	if (field->arr[y][x] == ' ' || field->arr[y][x] == '\0') {
+	if (field->arr[y][x] == ' ' && recurs < 4000) {
+		recurs++;	//Счётчик для контроля переполнения стека
 		field->arr[y][x] = '*';
 		check_cell(y - 1, x, field);
 		check_cell(y, x + 1, field);
 		check_cell(y + 1, x, field);
 		check_cell(y, x - 1, field);
 	}
-	else if (field->arr[y][x] == '@') {
+	else if (field->arr[y][x] == '@' && recurs < 4000) {
+		recurs++;	//Счётчик для контроля переполнения стека
 		count++;	//Счётчик доступных яблок (т.е. тех, до которых змейка может добраться)
 		field->arr[y][x] = '%';
 		check_cell(y - 1, x, field);
 		check_cell(y, x + 1, field);
 		check_cell(y + 1, x, field);
 		check_cell(y, x - 1, field);
+	}
+	else if (recurs == 4000) {
+		recurs_x = x;
+		recurs_y = y;
+		recurs++;
+	}
+	else if (x == recurs_start_x && y == recurs_start_y && recurs != 0) {
+		recurs = 0;
+		recurs_start_x = recurs_x;
+		recurs_start_y = recurs_y;
+		recurs_x = 0;
+		recurs_y = 0;
+		check_cell(recurs_x, recurs_y, field);
 	}
 }
 //Функция проверки поля на то, что до всех яблок змейка добраться и что змейка может из точки входа в лабиринт прийти в точку выхода
@@ -434,6 +454,8 @@ int main() {
 				draw(field);
 				clean_string(field, 1);
 				printf("Press w,a,s,d to continue.");
+				move_x = 0;
+				move_y = 0;
 				//Условие на первое движение
 				while (!flag) {
 					move(snake, field);

@@ -7,6 +7,16 @@
 #include <conio.h>
 #include <dos.h>
 
+#define UP 72
+#define DOWN 80
+#define RIGHT 77
+#define LEFT 75
+#define WIDTH 150
+#define HEIGHT 40
+#define TIME 150 
+#define PERSENTAGE_OF_WALLS 3
+#define PERSENTAGE_OF_APPLES 0.5
+
 int game_over, move_x, move_y;
 //int count;
 
@@ -90,17 +100,32 @@ void put_apple(Field* field) {
 //Функция инициализации поля (считывание размеров и характеристик, постройка граничных стен, постройка стен внутри, заполнение яблоками)
 void init_field(Field* field) {
 	int speed;
-	printf("Enter width of the field: ");
-	scanf("%d", &field->width);
-	printf("Enter height of the field: ");
-	scanf("%d", &field->height);
-	printf("Enter speed of the snake(1-10): ");
-	scanf("%d", &speed);
-	field->time = 750 / speed;
-	printf("Enter percentage of walls: ");
-	scanf("%f", &field->persentage_of_walls);
-	printf("Enter percentage of apples: ");
-	scanf("%f", &field->persentage_of_apples);
+	int flag = 0;
+	printf("Press 'D' to use default settings, 'S' to set personal arguments.\n");
+	while (!flag) {
+		switch (_getch()) {
+		case 's':
+			printf("Enter width of the field: ");
+			scanf("%d", &field->width);
+			printf("Enter height of the field: ");
+			scanf("%d", &field->height);
+			printf("Enter speed of the snake(1-10): ");
+			scanf("%d", &speed);
+			field->time = 750 / speed;
+			printf("Enter percentage of walls: ");
+			scanf("%f", &field->persentage_of_walls);
+			printf("Enter percentage of apples: ");
+			scanf("%f", &field->persentage_of_apples);
+			flag = 1;
+		case 'd':
+			field->width = WIDTH;
+			field->height = HEIGHT;
+			field->time = TIME;
+			field->persentage_of_walls = PERSENTAGE_OF_WALLS;
+			field->persentage_of_apples = PERSENTAGE_OF_APPLES;
+			flag = 1;
+		}
+	}
 	system("cls");
 	//Выделение памяти под массив с симолами поля
 	field->arr = (char**)malloc(sizeof(char*) * (field->height + 2));
@@ -195,10 +220,11 @@ void save(Snake* snake, Field* field) {
 void move(Snake* snake, Field* field) {
 	//Условие на первое движение только вниз
 	int flag = 0;
+	char temp;
 	if (snake->head.col == 1 && snake->head.row == 0) {
 		while (!flag) {
 			if (_kbhit) {
-				if (_getch() == 's') {
+				if (_getch() == DOWN) {
 					move_x = 0;
 					move_y = 1;
 					snake->direct = 'v';
@@ -210,60 +236,32 @@ void move(Snake* snake, Field* field) {
 					}
 					else {
 						clean_string(field, 1);
-						printf("W,a,s,d - snake control, p - pause.\nApples number - %d", field->maximum);
+						printf("Up, down, left, right - snake control, 'space' - pause.\nApples number - %d", field->maximum);
 					}
 				}
 			}
 		}
 	}
 	else if (_kbhit()) {	//функция работает только при вводе символа
-		switch (_getch()) {
-		case 'w':
-			if (snake->direct != 'v') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
-				move_x = 0;
-				move_y = -1;
-				snake->direct = '^';	//Изменение символа головы
-			}
-			break;
-		case 's':
-			if (snake->direct != '^') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
-				move_x = 0;
-				move_y = 1;
-				snake->direct = 'v';	//Изменение символа головы
-			}
-			break;
-		case 'a':
-			if (snake->direct != '>') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
-				move_x = -1;
-				move_y = 0;
-				snake->direct = '<';	//Изменение символа головы
-			}
-			break;
-		case 'd':
-			if (snake->direct != '<') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
-				move_x = 1;
-				move_y = 0;
-				snake->direct = '>';	//Изменение символа головы
-			}
-			break;
-		case 'p':	//Условие на паузу
+		temp = _getch();
+		if (temp == ' ') {
 			clean_string(field, 1);
-			printf("Press 'P' to continue, 'F' to save your progress, 'E' finish the game: ");
+			printf("Press 'Space' to continue, 'F' to save your progress, 'E' finish the game: ");
 			while (!flag) {
 				if (_kbhit) {
 					switch (_getch()) {
-					case 'p':	//Условие на продолжение игры
+					case ' ':	//Условие на продолжение игры
 						flag = 1;
 						clean_string(field, 1);
-						printf("w,a,s,d - snake control, p - pause.");
+						printf("Up, down, left, right - snake control, 'space' - pause.");
 						break;
 					case 'f':	//Условие на запись в файл
 						save(snake, field);
 						clean_string(field, 1);
 						printf("Your progress is saved!");
-						Sleep(3000);
+						Sleep(2000);
 						clean_string(field, 1);
-						printf("Press 'P' to continue, 'F' to save your progress, 'E' to finish the game: ");
+						printf("Press 'space' to continue, 'F' to save your progress, 'E' to finish the game: ");
 						break;
 					case 'e':	//Условие на выход из игры
 						clean_string(field, 2);
@@ -274,9 +272,41 @@ void move(Snake* snake, Field* field) {
 					}
 				}
 			}
-		default:
-			move_x = move_x;
-			move_y = move_y;
+		}
+		else if (temp = -32) {
+			switch (_getch()) {
+			case UP:
+				if (snake->direct != 'v') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+					move_x = 0;
+					move_y = -1;
+					snake->direct = '^';	//Изменение символа головы
+				}
+				break;
+			case DOWN:
+				if (snake->direct != '^') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+					move_x = 0;
+					move_y = 1;
+					snake->direct = 'v';	//Изменение символа головы
+				}
+				break;
+			case LEFT:
+				if (snake->direct != '>') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+					move_x = -1;
+					move_y = 0;
+					snake->direct = '<';	//Изменение символа головы
+				}
+				break;
+			case RIGHT:
+				if (snake->direct != '<') {	//Проверка, что змейка не пойдёт назад (т.е. сама в себя)
+					move_x = 1;
+					move_y = 0;
+					snake->direct = '>';	//Изменение символа головы
+				}
+				break;
+			default:
+				move_x = move_x;
+				move_y = move_y;
+			}
 		}
 	}
 }
@@ -466,7 +496,7 @@ int main() {
 					if (move_x != 0 || move_y != 0) {
 						flag = 1;
 						clean_string(field, 1);
-						printf("W,a,s,d - snake control, p - pause.");
+						printf("Up, down, left, right - snake control, 'space' - pause.");
 					}
 				}
 				extraflag = 1;
@@ -482,7 +512,7 @@ int main() {
 				clean(field);
 				draw(field);
 				clean_string(field, 1);
-				printf("Press 'S' to start the game:	");
+				printf("Press 'down' to start the game:	");
 				extraflag = 1;
 				break;
 			default:

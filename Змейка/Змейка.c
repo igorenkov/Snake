@@ -7,7 +7,9 @@
 #include <conio.h>
 #include <dos.h>
 
-int game_over, move_x, move_y, count;
+int game_over, move_x, move_y;
+//int count;
+
 //Структура с координатами части тела змейки(row - номер строки, col - номер столбца)
 typedef struct place {
 	int row, col;
@@ -46,7 +48,7 @@ void clean_string(Field* field, int n) {
 //Просто функция с инициализацией переменных
 void start() {
 	game_over = 0;
-	count = 0;
+//	count = 0;
 }
 //Функция инициализации змеи
 void init_snake(Snake* snake, Field* field) {
@@ -134,9 +136,9 @@ void check_cell(int y, int x, Field* field, int recurs) {
 		check_cell(y + 1, x, field, recurs);
 		check_cell(y, x - 1, field, recurs);
 	}
-	else if (field->arr[y][x] == '@' && recurs < 4000) {
+	else if (field->arr[y][x] == '@' && recurs < 4500) {
 		recurs++;	//Счётчик для контроля переполнения стека
-		count++;	//Счётчик доступных яблок (т.е. тех, до которых змейка может добраться)
+	//	count++;	//Счётчик доступных яблок (т.е. тех, до которых змейка может добраться)
 		field->arr[y][x] = '%';
 		check_cell(y - 1, x, field, recurs);
 		check_cell(y, x + 1, field, recurs);
@@ -147,7 +149,7 @@ void check_cell(int y, int x, Field* field, int recurs) {
 //Функция проверки поля на то, что до всех яблок змейка добраться и что змейка может из точки входа в лабиринт прийти в точку выхода
 void check_access(Field* field,int recurs) {
 	check_cell(1, 1, field, recurs);
-	if ((count == field->maximum) && ((field->arr[1][1] == '*') || (field->arr[1][1] == '%')) && ((field->arr[field->height][field->width] == '*') || (field->arr[field->height][field->width] == '%'))) {
+	if (/*(count == field->maximum) &&*/ ((field->arr[1][1] == '*') || (field->arr[1][1] == '%')) && ((field->arr[field->height][field->width] == '*') || (field->arr[field->height][field->width] == '%'))) {
 		game_over = 0;
 	}
 	else {
@@ -280,8 +282,25 @@ void move(Snake* snake, Field* field) {
 }
 //Функция рисования символа symb в точке (x, y)
 void draw_symbol(int y, int x, char symb) {
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+
 	setcur(x, y);
+
+	if (symb == '#') {
+		SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 10));
+	}
+	else if (symb == '@') {
+		SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 4));
+	}
+	else if (symb == 'o') {
+		SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 9));
+	} else if (symb == '^' || symb == '>' || symb == 'v' || symb == '<') {
+		SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 5));
+	}
+
 	putchar(symb);
+
+	SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 7));
 }
 //Главная функция проверки на столкновение или поедание яблока
 void check(Snake* snake, Field* field) {
@@ -352,13 +371,15 @@ void check_victory(Snake* snake, Field* field) {
 }
 //Функция рисования всего поля
 void draw(Field* field) {
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	setcur(0, 0);
 	for (int i = 0; i < field->height + 2; i++) {
 		for (int j = 0; j < field->width + 2; j++) {
-			putchar(field->arr[i][j]);
+			draw_symbol(i, j, field->arr[i][j]);
 		}
 		putchar('\n');
 	}
+	SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 7));
 }
 //Функция считывания поля и змейки из файла "Progress.txt"
 void read(FILE* fp, Snake* snake, Field* field) {

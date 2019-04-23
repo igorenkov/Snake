@@ -287,15 +287,15 @@ void draw_symbol(int y, int x, char symb) {
 	setcur(x, y);
 
 	if (symb == '#') {
-		SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 10));
+		SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 6));
 	}
 	else if (symb == '@') {
-		SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 4));
+		SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 12));
 	}
 	else if (symb == 'o') {
 		SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 9));
 	} else if (symb == '^' || symb == '>' || symb == 'v' || symb == '<') {
-		SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 5));
+		SetConsoleTextAttribute(hConsole, (WORD)((0 << 4) | 11));
 	}
 
 	putchar(symb);
